@@ -26,8 +26,13 @@ app.get('/health', (req, res) => {
 
 // Accept a report request, hand the slow work to the background, answer fast
 app.post('/reports', async (req, res) => {
-  // Read the topic the client sent in the JSON body
-  const { topic } = req.body;
+  // Read the topic from the JSON body, falling back to an empty object if there is no body
+  const { topic } = req.body ?? {};
+  // Reject the request at the door if the topic is missing, not text, or only spaces
+  if (typeof topic !== 'string' || topic.trim() === '') {
+    // Answer 400 Bad Request and stop here, so no report is saved and no event is sent
+    return res.status(400).json({ error: 'topic is required' });
+  }
   // Make a unique id for this report
   const id = randomUUID();
   // Save the report in the map as pending

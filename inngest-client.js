@@ -21,8 +21,8 @@ export const sayHello = inngest.createFunction(
 
 // Define the make-report function, triggered by the event report/requested
 export const makeReport = inngest.createFunction(
-  // Give the function an id and attach its trigger
-  { id: 'make-report', triggers: [{ event: 'report/requested' }] },
+  // Give the function an id, allow 2 retries (3 attempts in total) and attach its trigger
+  { id: 'make-report', retries: 2, triggers: [{ event: 'report/requested' }] },
   // The handler receives the event data and the step helper
   async ({ event, step }) => {
     // Read the report id and topic that the endpoint sent in the event
@@ -31,6 +31,11 @@ export const makeReport = inngest.createFunction(
     await step.sleep('do-the-slow-work', '8s');
     // Run the build step, which Inngest records as its own named step
     const result = await step.run('build-report', () => {
+      // Fail on purpose when the topic is "fail" so we can watch the retries
+      if (topic === 'fail') {
+        // Throw an error, which tells Inngest this attempt failed and should be retried
+        throw new Error('The report oven is broken!');
+      }
       // Build the report text from the topic
       const text = `Report about ${topic}: generated in the background.`;
       // Save the finished report in the map with status done
