@@ -1,3 +1,13 @@
 {
-	"type": "module"
+	"type": "module",
+	"dependencies": {
+		"express": "^5.3.0",
+		"inngest": "^4.24.0"
+	},
+	"devDependencies": {
+		"inngest-cli": "^1.46.0"
+	},
+	"allowScripts": {
+		"inngest-cli@1.46.0": true
+	}
 }
