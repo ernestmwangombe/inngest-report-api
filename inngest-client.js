@@ -21,8 +21,21 @@ export const sayHello = inngest.createFunction(
 
 // Define the make-report function, triggered by the event report/requested
 export const makeReport = inngest.createFunction(
-  // Give the function an id, allow 2 retries (3 attempts in total) and attach its trigger
-  { id: 'make-report', retries: 2, triggers: [{ event: 'report/requested' }] },
+  {
+    // Give the function an id
+    id: 'make-report',
+    // Allow 2 retries, which means 3 attempts in total
+    retries: 2,
+    // Attach the event trigger
+    triggers: [{ event: 'report/requested' }],
+    // Run this only after all retries are used up, so the report can be marked failed
+    onFailure: async ({ event, error }) => {
+      // Read the original report id and topic from the event that started the failed run
+      const { id, topic } = event.data.event.data;
+      // Save the report in the map as failed, with the error message
+      reports.set(id, { id, topic, status: 'failed', error: error.message });
+    },
+  },
   // The handler receives the event data and the step helper
   async ({ event, step }) => {
     // Read the report id and topic that the endpoint sent in the event
@@ -45,5 +58,29 @@ export const makeReport = inngest.createFunction(
     });
     // Return the result as the output of the whole function run
     return result;
+  }
+);
+
+// Define the heartbeat function, started by the clock instead of an event
+export const heartbeat = inngest.createFunction(
+  // Give the function an id and a cron trigger that fires every minute (testing only)
+  { id: 'heartbeat', triggers: [{ cron: '* * * * *' }] },
+  // A cron function gets no event, so the handler takes no arguments
+  async () => {
+    // Start each status counter at zero
+    let pending = 0;
+    let done = 0;
+    let failed = 0;
+    // Look at every report in the map
+    for (const report of reports.values()) {
+      // Count the report under its current status
+      if (report.status === 'pending') pending++;
+      if (report.status === 'done') done++;
+      if (report.status === 'failed') failed++;
+    }
+    // Log one summary line to the terminal running the API
+    console.log(`[heartbeat] pending: ${pending}, done: ${done}, failed: ${failed}`);
+    // Return the counts so they also show as the run output in the dashboard
+    return { pending, done, failed };
   }
 );

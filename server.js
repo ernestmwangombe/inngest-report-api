@@ -4,8 +4,8 @@ import express from 'express';
 import { randomUUID } from 'node:crypto';
 // Import the serve helper that exposes Inngest functions through Express
 import { serve } from 'inngest/express';
-// Import our Inngest client and both functions
-import { inngest, sayHello, makeReport } from './inngest-client.js';
+// Import our Inngest client and all three functions
+import { inngest, sayHello, makeReport, heartbeat } from './inngest-client.js';
 // Import the shared in-memory map of reports
 import { reports } from './reports-store.js';
 
@@ -57,10 +57,10 @@ app.get('/reports/:id', (req, res) => {
 });
 
 // Serve our Inngest functions at /api/inngest so the Dev Server can find them
-app.use('/api/inngest', serve({ client: inngest, functions: [sayHello, makeReport] }));
+app.use('/api/inngest', serve({ client: inngest, functions: [sayHello, makeReport, heartbeat] }));
 
 // Start the server and listen for incoming requests on the chosen port
 app.listen(PORT, () => {
   // Log a message so we know the server started successfully
   console.log(`Server running on http://localhost:${PORT}`);
-});
+})
