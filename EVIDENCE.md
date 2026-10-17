@@ -114,3 +114,19 @@ The dashboard shows each event in both UTC and local time, which is why the READ
 
 ![Dashboard with all runs](stage-tests/stage5/dashboard-all-runs.png)
 One Runs view with a completed `make-report`, a failed `make-report` (and its `make-report (failure)` run started by `onFailure`), and the `heartbeat` cron runs.
+
+## Fresh-clone test
+
+To check that the README works for someone starting from nothing, the repo was cloned into an empty folder, installed with `npm install` (about 2 minutes), and started with the two commands from the README. Then reports were created and polled.
+
+![Dev Server started from the fresh clone](stage-tests/stage5/clone-test-dev-server-output.png)
+The Dev Server in the clone: "Inngest Dev Server online" on port 8288, "apps synced" about 7 seconds after it started, then one scheduled event per minute for the heartbeat.
+
+![Creating and polling a report in the fresh clone](stage-tests/stage5/clone-test-create-report-and-runs.png)
+The terminal shows the new report as `pending`, and the poll shows `"status":"done"` with its result. The dashboard Runs list beside it shows a Completed `make-report` and Completed `heartbeat` runs.
+
+![202 and poll in the fresh clone](stage-tests/stage5/clone-test-202-and-poll.png)
+`curl -i` returns `HTTP/1.1 202 Accepted` with a `pending` body, and a poll of the earlier report returns `done`. The dashboard shows the `report/requested` event with `"topic": "cats"`.
+
+![Heartbeat counts in the fresh clone](stage-tests/stage5/clone-test-heartbeat-counts.png)
+The API terminal: the heartbeat counts start at zero, move to `done: 1`, show `pending: 1` while a `fail` report is being retried (with the "The report oven is broken!" errors), and end at `pending: 0, done: 2, failed: 1`.

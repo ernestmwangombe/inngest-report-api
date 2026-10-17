@@ -17,11 +17,15 @@ Reports are kept in memory, so they disappear when the API restarts.
 
 Tested with Node v24.18.0 and npm 12 on Windows. You need two terminals, one for the API and one for the Inngest Dev Server, and both must stay open.
 
-**Install** (once):
+**Get the code and install** (once). Run every command in this README from the project folder, the one that contains `package.json`:
 
 ```
+git clone https://github.com/ernestmwangombe/inngest-report-api.git
+cd inngest-report-api
 npm install
 ```
+
+The install can take a couple of minutes.
 
 **Terminal 1: the API** (port 3000). Set `INNGEST_DEV=1` first, so the app connects to the local Dev Server.
 
@@ -54,6 +58,42 @@ On Windows PowerShell, use `curl.exe` instead of `curl`.
 
 If the Dev Server says "Inngest CLI binary not found", the package's install script was skipped. Run `npm rebuild --ignore-scripts=false inngest-cli` and start it again.
 
+## Try it
+
+With both terminals running, open a third terminal in the project folder. You can watch every run in the dashboard at http://localhost:8288 (open **Runs**).
+
+**PowerShell** (use `curl.exe`, not `curl`). Create a report and keep its id:
+
+```
+$r = curl.exe -s -X POST http://localhost:3000/reports -H "Content-Type: application/json" -d '{"topic":"cats"}' | ConvertFrom-Json
+$r
+```
+
+The answer comes back at once with `"status":"pending"`. Poll the report:
+
+```
+curl.exe -s http://localhost:3000/reports/$($r.id)
+```
+
+Run the same poll again about 10 seconds later and it says `"status":"done"` with a `result`.
+
+Other cases to try:
+
+```
+curl.exe -i http://localhost:3000/reports/nope
+curl.exe -i -X POST http://localhost:3000/reports -H "Content-Type: application/json" -d '{}'
+curl.exe -s -X POST http://localhost:3000/reports -H "Content-Type: application/json" -d '{"topic":"fail"}'
+```
+
+The first returns `404` (unknown id), the second returns `400` (missing topic, no job is created), and the third returns `202` but the job fails on purpose and is retried, ending Failed in the dashboard.
+
+**macOS, Linux or Git Bash.** Create a report, then copy the `id` from the response and use it in the poll:
+
+```
+curl -i -X POST http://localhost:3000/reports -H "Content-Type: application/json" -d '{"topic":"cats"}'
+curl http://localhost:3000/reports/PASTE-THE-ID-HERE
+```
+
 ## Endpoints
 
 | Method and path | What it does | Responses |
@@ -73,7 +113,18 @@ If the Dev Server says "Inngest CLI binary not found", the package's install scr
 
 ## Proof: 202 now, done later
 
-One request, then two polls of the same report. The `POST` took 0.021 seconds, even though the work takes about 8 seconds.
+One request, then two polls of the same report. These are the PowerShell commands that were run:
+
+```
+$out = curl.exe -i -s -w "`nTotal time: %{time_total}s`n" -X POST http://localhost:3000/reports -H "Content-Type: application/json" -d '{"topic":"cats"}'
+$out
+$id = ($out | Where-Object { $_ -like '{*' } | ConvertFrom-Json).id
+(curl.exe -s http://localhost:3000/reports/$id)
+Start-Sleep -Seconds 10
+(curl.exe -s http://localhost:3000/reports/$id)
+```
+
+The `POST` took 0.021 seconds, even though the work takes about 8 seconds. Output:
 
 ```
 HTTP/1.1 202 Accepted
@@ -105,7 +156,12 @@ Poll again 10 seconds later, status `done`:
 
 A missing topic gets a 400 Bad Request because invalid input must be rejected immediately, whereas a valid request with a temporary background-processing failure deserves a retry, since a wrong input will fail the same way every time, but a wrong moment may pass on the next attempt.
 
-A request with topic `"fail"` still returns `202`, because the endpoint cannot know the job will fail. In the dashboard the `build-report` step shows Attempt 0, Attempt 1 and Attempt 2 with growing waits between them (backoff), and the run ends as Failed.
+A request with topic `"fail"` still returns `202`, because the endpoint cannot know the job will fail. In the dashboard the `build-report` step shows Attempt 0, Attempt 1 and Attempt 2 with growing waits between them (backoff), and the run ends as Failed. To reproduce both cases (PowerShell):
+
+```
+curl.exe -s -X POST http://localhost:3000/reports -H "Content-Type: application/json" -d '{"topic":"fail"}'
+curl.exe -i -X POST http://localhost:3000/reports -H "Content-Type: application/json" -d '{}'
+```
 
 ![make-report run that failed after 3 attempts](stage-tests/stage3/build-report-failed-3-attempts.png)
 
